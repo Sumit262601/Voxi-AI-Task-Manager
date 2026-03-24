@@ -35,15 +35,29 @@ function getRCToken() {
 const apiKey = getRCToken();
 let isConfigured = false;
 
-if (apiKey && !isConfigured && Platform.OS !== 'web') {
-  console.log('Configuring RevenueCat with API key');
+function ensureConfigured(): boolean {
+  if (isConfigured) return true;
+  if (Platform.OS === 'web') {
+    console.log('[RevenueCat] Skipping configuration on web');
+    return false;
+  }
+  if (!apiKey) {
+    console.log('[RevenueCat] No API key available, skipping configuration');
+    return false;
+  }
   try {
+    console.log('[RevenueCat] Configuring with API key');
     Purchases.configure({ apiKey });
     isConfigured = true;
+    console.log('[RevenueCat] Configuration successful');
+    return true;
   } catch (err) {
     console.warn('[RevenueCat] Failed to configure:', err);
+    return false;
   }
 }
+
+ensureConfigured();
 
 export type SubscriptionTier = 'free' | 'weekly' | 'monthly' | 'yearly';
 
@@ -138,7 +152,12 @@ export const [PurchasesProvider, usePurchases] = createContextHook((): Purchases
   const identifyingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isConfigured || !user?.id || Platform.OS === 'web') {
+    if (Platform.OS === 'web' || !user?.id) {
+      setIsUserIdentified(false);
+      return;
+    }
+
+    if (!ensureConfigured()) {
       setIsUserIdentified(false);
       return;
     }
@@ -167,7 +186,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook((): Purchases
   }, [user?.id, queryClient]);
 
   useEffect(() => {
-    if (!isConfigured || Platform.OS === 'web') return;
+    if (Platform.OS === 'web' || !isConfigured) return;
     if (user === null) {
       const logoutRC = async () => {
         try {
@@ -191,6 +210,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook((): Purchases
   const customerInfoQuery = useQuery({
     queryKey: ['customerInfo', user?.id],
     queryFn: async () => {
+      if (!ensureConfigured()) throw new Error('RevenueCat not configured');
       console.log('[RevenueCat] Fetching customer info for user:', user?.id);
       const info = await Purchases.getCustomerInfo();
       console.log('[RevenueCat] Customer info fetched, active entitlements:', Object.keys(info.entitlements.active));
@@ -207,6 +227,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook((): Purchases
   const offeringsQuery = useQuery({
     queryKey: ['offerings', user?.id],
     queryFn: async () => {
+      if (!ensureConfigured()) throw new Error('RevenueCat not configured');
       console.log('[RevenueCat] Fetching offerings');
       const offerings = await Purchases.getOfferings();
       console.log('[RevenueCat] Offerings fetched:', offerings.current?.identifier);
@@ -279,7 +300,8 @@ export const [PurchasesProvider, usePurchases] = createContextHook((): Purchases
   });
 
   const identifyUser = useCallback(async (userId: string) => {
-    if (!isConfigured || Platform.OS === 'web') return;
+    if (Platform.OS === 'web') return;
+    if (!ensureConfigured()) return;
     try {
       console.log('[RevenueCat] Manual identify user:', userId);
       identifyingRef.current = userId;
@@ -296,7 +318,7 @@ export const [PurchasesProvider, usePurchases] = createContextHook((): Purchases
   }, [queryClient]);
 
   useEffect(() => {
-    if (!isConfigured || Platform.OS === 'web') return;
+    if (Platform.OS === 'web' || !isConfigured) return;
 
     const listener = (info: CustomerInfo) => {
       console.log('[RevenueCat] Customer info updated via listener, entitlements:', Object.keys(info.entitlements.active));
