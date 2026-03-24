@@ -10,39 +10,51 @@ const SHAPES: ParticleData['shape'][] = ['rect', 'circle', 'diamond', 'star'];
 interface ParticleData {
   id: string;
   side: 'left' | 'right';
-  angle: number;
-  speed: number;
-  spread: number;
+  startX: number;
+  velocityX: number;
+  velocityY: number;
   delay: number;
   color: string;
   size: number;
-  rotation: number;
+  rotationStart: number;
+  rotationEnd: number;
   shape: 'rect' | 'circle' | 'diamond' | 'star';
+  gravity: number;
+  wobbleAmp: number;
+  wobbleFreq: number;
 }
 
 function generateParticles(): ParticleData[] {
   const particles: ParticleData[] = [];
-  const count = 80;
+  const count = 100;
 
   for (let i = 0; i < count; i++) {
     const side: 'left' | 'right' = i % 2 === 0 ? 'left' : 'right';
-    const baseAngle = side === 'left' ? 60 : 120;
-    const spreadRange = 55;
-    const angleOffset = (Math.random() - 0.5) * spreadRange;
-    const angleDeg = baseAngle + angleOffset;
+    const startX = side === 'left' ? -5 : SCREEN_WIDTH + 5;
+
+    const angleDeg = side === 'left'
+      ? 55 + Math.random() * 40
+      : 85 + Math.random() * 40;
     const angleRad = (angleDeg * Math.PI) / 180;
+
+    const speed = 55 + Math.random() * 35;
+    const dirX = side === 'left' ? 1 : -1;
 
     particles.push({
       id: `${Date.now()}_${i}`,
       side,
-      angle: angleRad,
-      speed: 50 + Math.random() * 30,
-      spread: spreadRange,
-      delay: Math.random() * 2800,
+      startX,
+      velocityX: Math.cos(angleRad) * speed * dirX,
+      velocityY: -Math.sin(angleRad) * speed,
+      delay: Math.random() * 1800,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       size: 6 + Math.random() * 8,
-      rotation: Math.random() * 360,
+      rotationStart: Math.random() * 360,
+      rotationEnd: Math.random() * 360 + 540 + Math.random() * 360,
       shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
+      gravity: 12 + Math.random() * 10,
+      wobbleAmp: 8 + Math.random() * 20,
+      wobbleFreq: 1 + Math.random() * 2,
     });
   }
 
@@ -76,63 +88,61 @@ function CannonParticle({ data }: { data: ParticleData }) {
   const progress = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const originX = data.side === 'left' ? -10 : SCREEN_WIDTH + 10;
-  const originY = SCREEN_HEIGHT * 0.5;
+  const duration = 2400 + Math.random() * 800;
 
-  const cosA = Math.cos(data.angle);
-  const sinA = -Math.sin(data.angle);
+  const peakT = 0.3;
+  const riseX = data.velocityX * 5;
+  const riseY = data.velocityY * 5;
 
-  const velocityX = cosA * data.speed;
-  const velocityY = sinA * data.speed;
+  const midX = riseX + data.velocityX * 1.5 + data.wobbleAmp;
+  const midY = riseY + data.gravity * 3;
 
-  const midX = velocityX * 6;
-  const midY = velocityY * 6;
-  const endX = midX + velocityX * 2;
-  const endY = midY + SCREEN_HEIGHT * 0.6;
+  const endX = midX + data.wobbleAmp * (data.side === 'left' ? 0.5 : -0.5);
+  const endY = SCREEN_HEIGHT * 0.7 + Math.random() * SCREEN_HEIGHT * 0.3;
 
   useEffect(() => {
     const animation = Animated.sequence([
       Animated.delay(data.delay),
       Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 60, useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 1, duration: 1800 + Math.random() * 600, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(progress, { toValue: 1, duration, useNativeDriver: true }),
       ]),
     ]);
     animation.start();
     return () => animation.stop();
-  }, [data.delay, opacityAnim, progress]);
+  }, [data.delay, opacityAnim, progress, duration]);
 
   const translateX = progress.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0, midX, endX],
+    inputRange: [0, peakT, 0.6, 1],
+    outputRange: [0, riseX, midX, endX],
   });
 
   const translateY = progress.interpolate({
-    inputRange: [0, 0.3, 0.5, 1],
-    outputRange: [0, midY * 0.6, midY, endY],
+    inputRange: [0, peakT, 0.55, 0.75, 1],
+    outputRange: [0, riseY, riseY + data.gravity * 8, midY + data.gravity * 14, endY],
   });
 
   const scale = progress.interpolate({
-    inputRange: [0, 0.1, 0.6, 1],
-    outputRange: [0.2, 1.1, 1, 0.4],
+    inputRange: [0, 0.08, 0.5, 0.85, 1],
+    outputRange: [0.2, 1.15, 1, 0.7, 0.3],
   });
 
   const rotate = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [`${data.rotation}deg`, `${data.rotation + 720}deg`],
+    outputRange: [`${data.rotationStart}deg`, `${data.rotationEnd}deg`],
   });
 
   const opacity = Animated.multiply(
     opacityAnim,
-    progress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] })
+    progress.interpolate({ inputRange: [0, 0.6, 0.85, 1], outputRange: [1, 1, 0.6, 0] })
   );
 
   return (
     <Animated.View
       style={{
         position: 'absolute' as const,
-        left: originX,
-        top: originY,
+        left: data.startX,
+        top: SCREEN_HEIGHT * 0.45,
         opacity,
         transform: [{ translateX }, { translateY }, { scale }, { rotate }],
       }}
@@ -160,13 +170,13 @@ export default function ConfettiSprinkles({ visible, onComplete }: ConfettiSprin
 
   useEffect(() => {
     if (visible) {
-      console.log('[Confetti] Side cannons triggered');
+      console.log('[Confetti] Side cannons triggered - shoot up & fall');
       setParticles(generateParticles());
       cleanup();
       timerRef.current = setTimeout(() => {
         setParticles([]);
         onComplete?.();
-      }, 4000);
+      }, 5000);
     } else {
       setParticles([]);
       cleanup();
