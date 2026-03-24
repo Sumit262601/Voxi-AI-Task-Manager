@@ -3,6 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BIOMETRIC_ENABLED_KEY = '@biometric_auth_enabled';
 
+let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    LocalAuthentication = require('expo-local-authentication');
+  } catch (e) {
+    console.warn('[Biometric] expo-local-authentication not available:', e);
+  }
+}
+
 interface BiometricResult {
   success: boolean;
   error?: string;
@@ -19,7 +29,9 @@ export async function checkBiometricSupport(): Promise<BiometricSupport> {
   }
 
   try {
-    const LocalAuthentication = await import('expo-local-authentication');
+    if (!LocalAuthentication) {
+      return { isAvailable: false, biometricType: 'none' };
+    }
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
@@ -52,7 +64,9 @@ export async function authenticateWithBiometrics(promptMessage?: string): Promis
   }
 
   try {
-    const LocalAuthentication = await import('expo-local-authentication');
+    if (!LocalAuthentication) {
+      return { success: false, error: 'Biometrics not available' };
+    }
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: promptMessage || 'Authenticate to access the app',
       cancelLabel: 'Cancel',
