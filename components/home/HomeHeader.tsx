@@ -1,13 +1,14 @@
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { formatDate } from '@/utils/dateUtils';
-import { useRouter } from 'expo-router';
-import { Calendar, Sparkles } from 'lucide-react-native';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Bell, Calendar, Sparkles } from 'lucide-react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface HomeHeaderProps {
   selectedDate: Date;
   onCalendarPress: () => void;
+  onNotificationPress: () => void;
+  unreadCount: number;
 }
 
 function getGreeting(): string {
@@ -17,9 +18,8 @@ function getGreeting(): string {
   return 'Good Evening';
 }
 
-export default function HomeHeader({ selectedDate, onCalendarPress }: HomeHeaderProps) {
+export default function HomeHeader({ selectedDate, onCalendarPress, onNotificationPress, unreadCount }: HomeHeaderProps) {
   const { user } = useAuth();
-  const router = useRouter();
   const greeting = getGreeting();
   const firstName = user?.name?.split(' ')[0] || 'there';
 
@@ -39,13 +39,16 @@ export default function HomeHeader({ selectedDate, onCalendarPress }: HomeHeader
             <Calendar size={20} color={Colors.text} />
           </Pressable>
           
-          <Pressable onPress={() => router.push('/profile' as any)} style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}>
-            {user?.profilePhoto ? (
-              <Image source={{ uri: user.profilePhoto }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
+          <Pressable
+            style={styles.notificationButton}
+            onPress={onNotificationPress}
+            testID="notification-bell"
+          >
+            <Bell size={20} color={Colors.text} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </Text>
               </View>
             )}
@@ -107,23 +110,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatar: {
+  notificationButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
-  },
-  avatarPlaceholder: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: Colors.peach,
+    backgroundColor: '#F5F3F0',
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 18,
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#F5F3F0',
+  },
+  badgeText: {
+    fontSize: 10,
     fontWeight: '700' as const,
     color: '#FFFFFF',
+    lineHeight: 12,
   },
   dateRow: {
     flexDirection: 'row',

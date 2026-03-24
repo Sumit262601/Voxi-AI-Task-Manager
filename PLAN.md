@@ -1,28 +1,14 @@
-# Apple Subscription Fixes for App Store Submission
+# Replace profile photo with notification bell on home screen
 
-## What will be fixed
+**Changes**
 
-**1. Add Terms of Service & Privacy Policy Links on Paywall**
-- [x] Clickable links at the bottom of the subscription page for "Terms of Service" and "Privacy Policy"
-- [x] Uses placeholder URLs for now (you can update them later with your real URLs)
-- [x] Apple requires these to be visible and tappable before any purchase
+- **Remove profile photo** from the top-right of the home screen header
+- **Add a notification bell icon** in its place (same style as the calendar icon button)
+- **Show unread badge** — a small colored dot on the bell icon when there are unread notifications
+- **Tapping the bell** opens the notification modal from the bottom of the screen
+- **Draggable modal** — the notification panel slides up from the bottom; user can drag it up/down to resize
+- **Close button** — circular close icon on the left side of the modal header with a light shadow
+- **Light shadow** on the modal and close button for depth
+- **Notifications list** shows all notification history items with staggered entry animations
+- **Badges** to show no of notification in the icon 
 
-**2. Fix Duplicate Audio Entry in App Settings**
-- [ ] Remove the duplicate "audio" entry in the background modes configuration (app.json is restricted, needs manual fix)
-- [ ] Prevents potential Apple review warnings
-
-**3. Make Subscription Prices Always Dynamic**
-- [x] When RevenueCat prices are available, they will be shown everywhere (profile, stats, etc.)
-- [x] Hardcoded fallback prices remain only as backup if RevenueCat hasn't loaded yet
-- [x] This ensures prices always match what's set in App Store Connect
-
-**4. Improve Paywall Legal Text**
-- [x] Updated subscription disclaimer text to meet Apple's requirements:
-  - [x] Clearly states subscription auto-renews
-  - [x] Mentions cancellation must happen 24 hours before period ends
-  - [x] Payment is charged to Apple ID account
-  - [x] Links to Terms & Privacy Policy are tappable
-
-**5. Profile Legal Section**
-- [x] Privacy Policy link now opens URL
-- [x] Terms & Conditions link now opens URL

@@ -13,11 +13,13 @@ import {
 import { useTasks, type Task } from '@/contexts/tasks';
 import { useCanCreateTask } from '@/contexts/purchases';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfettiSprinkles from '@/components/ConfettiSprinkles';
+import NotificationsModal, { type Notification } from '@/components/profile/NotificationsModal';
+import { getNotificationHistory, type NotificationHistoryItem } from '@/utils/notifications';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -42,6 +44,8 @@ export default function HomeScreen() {
   const [editFrequency, setEditFrequency] = useState('Every Day');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const handleToggleTask = useCallback((id: string) => {
     const task = allTasks.find(t => t.id === id);
@@ -50,6 +54,34 @@ export default function HomeScreen() {
     }
     toggleTaskContext(id);
   }, [allTasks, toggleTaskContext]);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const history = await getNotificationHistory();
+      const mapped: Notification[] = history.map((item: NotificationHistoryItem) => ({
+        id: item.id,
+        title: item.title,
+        message: item.message,
+        time: item.time,
+        read: item.read,
+        type: item.type,
+      }));
+      setNotifications(mapped);
+    } catch (error) {
+      console.log('Error loading notifications:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const handleOpenNotifications = useCallback(() => {
+    loadNotifications();
+    setShowNotifications(true);
+  }, [loadNotifications]);
+
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
   const openCalendarModal = () => {
     setCalendarMonth(selectedDate);
@@ -161,7 +193,12 @@ export default function HomeScreen() {
         style={styles.gradient}
       >
         <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <HomeHeader selectedDate={selectedDate} onCalendarPress={openCalendarModal} />
+          <HomeHeader
+            selectedDate={selectedDate}
+            onCalendarPress={openCalendarModal}
+            onNotificationPress={handleOpenNotifications}
+            unreadCount={unreadCount}
+          />
           <WeekCalendar
             today={today}
             selectedDate={selectedDate}
@@ -244,6 +281,12 @@ export default function HomeScreen() {
             onClose={closeCalendarModal}
             onSelectDate={selectDateFromCalendar}
             onMonthChange={changeMonth}
+          />
+
+          <NotificationsModal
+            visible={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            notifications={notifications}
           />
 
           <EditTaskModal
