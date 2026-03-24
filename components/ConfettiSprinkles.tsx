@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
+import { Animated, Dimensions, StyleSheet, View, Easing } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -10,311 +10,209 @@ const SPRINKLE_COLORS = [
   '#FFE162', '#7EC8E3', '#E14D2A', '#B2A4FF',
 ];
 
-type AnimationStyle = 'classic' | 'explosion' | 'spiral' | 'fountain' | 'rain' | 'firework';
-
-const ANIMATION_STYLES: AnimationStyle[] = ['classic', 'explosion', 'spiral', 'fountain', 'rain', 'firework'];
-
-function pickRandomStyle(): AnimationStyle {
-  return ANIMATION_STYLES[Math.floor(Math.random() * ANIMATION_STYLES.length)];
-}
+const SHAPES: SprinkleData['shape'][] = ['rect', 'circle', 'diamond', 'star'];
 
 interface SprinkleData {
   id: string;
-  x: number;
-  y: number;
   delay: number;
   duration: number;
   color: string;
   width: number;
   height: number;
   rotation: number;
-  swingAmplitude: number;
   shape: 'rect' | 'circle' | 'diamond' | 'star';
-  animStyle: AnimationStyle;
   angle: number;
-  speed: number;
+  burstRadius: number;
+  trailColor: string;
+  wave: number;
 }
 
-function getCount(style: AnimationStyle): number {
-  switch (style) {
-    case 'explosion': return 60;
-    case 'firework': return 55;
-    case 'fountain': return 50;
-    case 'spiral': return 45;
-    case 'rain': return 65;
-    default: return 50;
-  }
-}
-
-const SHAPES: SprinkleData['shape'][] = ['rect', 'circle', 'diamond', 'star'];
-
-function generateSprinkles(style: AnimationStyle): SprinkleData[] {
-  const count = getCount(style);
+function generateFireworkBurst(centerX: number, burstY: number, count: number, baseDelay: number): SprinkleData[] {
   return Array.from({ length: count }, (_, i) => {
-    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+    const size = 5 + Math.random() * 9;
     return {
-      id: `${Date.now()}_${i}`,
-      x: style === 'explosion' || style === 'firework'
-        ? SCREEN_WIDTH / 2
-        : style === 'fountain'
-          ? SCREEN_WIDTH / 2 + (Math.random() - 0.5) * 60
-          : Math.random() * SCREEN_WIDTH,
-      y: style === 'explosion'
-        ? SCREEN_HEIGHT * 0.45
-        : style === 'firework'
-          ? SCREEN_HEIGHT * 0.35
-          : style === 'fountain'
-            ? SCREEN_HEIGHT * 0.5
-            : -60,
-      delay: style === 'rain'
-        ? Math.random() * 800
-        : style === 'spiral'
-          ? i * 25
-          : Math.random() * 300,
-      duration: style === 'rain'
-        ? 1200 + Math.random() * 600
-        : style === 'firework'
-          ? 1400 + Math.random() * 800
-          : 1600 + Math.random() * 1000,
+      id: `${Date.now()}_${baseDelay}_${i}`,
+      delay: baseDelay,
+      duration: 1000 + Math.random() * 600,
       color: SPRINKLE_COLORS[Math.floor(Math.random() * SPRINKLE_COLORS.length)],
-      width: style === 'rain' ? 3 + Math.random() * 3 : 6 + Math.random() * 8,
-      height: style === 'rain' ? 16 + Math.random() * 12 : 12 + Math.random() * 14,
+      width: size,
+      height: size + Math.random() * 6,
       rotation: Math.random() * 360,
-      swingAmplitude: 20 + Math.random() * 40,
       shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
-      animStyle: style,
       angle,
-      speed: 0.6 + Math.random() * 0.8,
+      burstRadius: 70 + Math.random() * 180,
+      trailColor: SPRINKLE_COLORS[Math.floor(Math.random() * SPRINKLE_COLORS.length)],
+      wave: wave(centerX, burstY),
     };
   });
 }
 
-interface ConfettiSprinklesProps {
-  visible: boolean;
-  onComplete?: () => void;
+function wave(centerX: number, burstY: number): number {
+  return centerX + burstY * 0;
 }
 
-function ClassicSprinkle({ data }: { data: SprinkleData }) {
-  const fallAnim = useRef(new Animated.Value(0)).current;
-  const spinAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+interface FireworkRocketProps {
+  startX: number;
+  burstY: number;
+  riseDelay: number;
+  riseDuration: number;
+  particles: SprinkleData[];
+}
+
+function FireworkRocket({ startX, burstY, riseDelay, riseDuration, particles }: FireworkRocketProps) {
+  const riseAnim = useRef(new Animated.Value(0)).current;
+  const trailOpacity = useRef(new Animated.Value(0)).current;
+  const [hasBurst, setHasBurst] = useState<boolean>(false);
+  const flashAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const animation = Animated.sequence([
-      Animated.delay(data.delay),
+      Animated.delay(riseDelay),
       Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(fallAnim, { toValue: 1, duration: data.duration, useNativeDriver: true }),
-        Animated.loop(
-          Animated.timing(spinAnim, { toValue: 1, duration: 500 + Math.random() * 400, useNativeDriver: true })
-        ),
+        Animated.timing(trailOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(riseAnim, {
+          toValue: 1,
+          duration: riseDuration,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
       ]),
     ]);
-    animation.start();
+    animation.start(() => {
+      setHasBurst(true);
+      Animated.sequence([
+        Animated.timing(flashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    });
     return () => animation.stop();
   }, []);
 
-  const translateY = fallAnim.interpolate({ inputRange: [0, 1], outputRange: [-60, SCREEN_HEIGHT + 60] });
-  const translateX = fallAnim.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, data.swingAmplitude, 0, -data.swingAmplitude, 0],
+  const rocketY = riseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [SCREEN_HEIGHT + 20, burstY],
   });
-  const rotate = spinAnim.interpolate({ inputRange: [0, 1], outputRange: [`${data.rotation}deg`, `${data.rotation + 360}deg`] });
-  const opacity = Animated.multiply(opacityAnim, fallAnim.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 1, 0] }));
+
+  const rocketOpacity = riseAnim.interpolate({
+    inputRange: [0, 0.1, 0.9, 1],
+    outputRange: [0, 1, 1, 0],
+  });
+
+  const rocketScale = riseAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.6, 1, 0.3],
+  });
 
   return (
-    <Animated.View style={{
-      position: 'absolute' as const, left: data.x, top: 0,
-      opacity, transform: [{ translateY }, { translateX }, { rotate }],
-    }}>
-      <ShapeView data={data} />
-    </Animated.View>
+    <>
+      {!hasBurst && (
+        <>
+          <Animated.View style={{
+            position: 'absolute' as const,
+            left: startX - 3,
+            top: 0,
+            width: 6,
+            height: 18,
+            borderRadius: 3,
+            backgroundColor: '#FFF',
+            opacity: rocketOpacity,
+            transform: [{ translateY: rocketY }, { scale: rocketScale }],
+          }} />
+          <Animated.View style={{
+            position: 'absolute' as const,
+            left: startX - 2,
+            top: 0,
+            width: 4,
+            height: 30,
+            borderRadius: 2,
+            backgroundColor: '#FFD93D',
+            opacity: Animated.multiply(trailOpacity, riseAnim.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [0, 0.7, 0],
+            })),
+            transform: [
+              { translateY: Animated.add(rocketY, new Animated.Value(16)) },
+              { scale: rocketScale },
+            ],
+          }} />
+        </>
+      )}
+
+      <Animated.View style={{
+        position: 'absolute' as const,
+        left: startX - 25,
+        top: burstY - 25,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        opacity: flashAnim,
+        transform: [{ scale: flashAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 2.5] }) }],
+      }} />
+
+      {hasBurst && particles.map((p, idx) => (
+        <BurstParticle key={p.id} data={p} burstX={startX} burstY={burstY} index={idx} />
+      ))}
+    </>
   );
 }
 
-function ExplosionSprinkle({ data }: { data: SprinkleData }) {
+function BurstParticle({ data, burstX, burstY }: { data: SprinkleData; burstX: number; burstY: number; index: number }) {
   const progress = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const sparkle = useRef(new Animated.Value(1)).current;
 
-  const radius = 80 + Math.random() * 180;
-  const targetX = Math.cos(data.angle) * radius * data.speed;
-  const targetY = Math.sin(data.angle) * radius * data.speed;
+  const targetX = Math.cos(data.angle) * data.burstRadius;
+  const targetY = Math.sin(data.angle) * data.burstRadius;
+  const gravity = 80 + Math.random() * 60;
 
   useEffect(() => {
-    const animation = Animated.sequence([
-      Animated.delay(data.delay),
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 60, useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 1, duration: data.duration, useNativeDriver: true }),
-      ]),
-    ]);
-    animation.start();
-    return () => animation.stop();
-  }, []);
-
-  const translateX = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, targetX, targetX * 1.1] });
-  const translateY = progress.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, targetY, targetY + 200] });
-  const scale = progress.interpolate({ inputRange: [0, 0.15, 0.5, 1], outputRange: [0, 1.3, 1, 0.3] });
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${data.rotation + 720}deg`] });
-  const opacity = Animated.multiply(opacityAnim, progress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 1, 0] }));
-
-  return (
-    <Animated.View style={{
-      position: 'absolute' as const, left: data.x, top: data.y,
-      opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate }],
-    }}>
-      <ShapeView data={data} />
-    </Animated.View>
-  );
-}
-
-function SpiralSprinkle({ data, index }: { data: SprinkleData; index: number }) {
-  const progress = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  const spiralRadius = 30 + index * 2.5;
-  const spiralAngle = index * 0.45;
-
-  useEffect(() => {
-    const animation = Animated.sequence([
-      Animated.delay(data.delay),
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 1, duration: data.duration + 400, useNativeDriver: true }),
-      ]),
+    const animation = Animated.parallel([
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: data.duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(sparkle, { toValue: 0.3, duration: 100 + Math.random() * 100, useNativeDriver: true }),
+          Animated.timing(sparkle, { toValue: 1, duration: 100 + Math.random() * 100, useNativeDriver: true }),
+        ])
+      ),
     ]);
     animation.start();
     return () => animation.stop();
   }, []);
 
   const translateX = progress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, Math.cos(spiralAngle) * spiralRadius, Math.cos(spiralAngle * 2) * spiralRadius * 0.5],
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, targetX, targetX * 0.85],
   });
   const translateY = progress.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [-60, SCREEN_HEIGHT * 0.5, SCREEN_HEIGHT + 60],
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, targetY, targetY + gravity],
   });
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${360 * 3}deg`] });
-  const scale = progress.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0.2, 1.1, 1, 0.4] });
-  const opacity = Animated.multiply(opacityAnim, progress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1, 0] }));
-
-  return (
-    <Animated.View style={{
-      position: 'absolute' as const, left: data.x, top: 0,
-      opacity, transform: [{ translateX }, { translateY }, { rotate }, { scale }],
-    }}>
-      <ShapeView data={data} />
-    </Animated.View>
-  );
-}
-
-function FountainSprinkle({ data }: { data: SprinkleData }) {
-  const progress = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  const spreadX = (Math.random() - 0.5) * SCREEN_WIDTH * 0.8;
-  const peakY = -(150 + Math.random() * 200);
-
-  useEffect(() => {
-    const animation = Animated.sequence([
-      Animated.delay(data.delay),
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 60, useNativeDriver: true }),
-        Animated.timing(progress, { toValue: 1, duration: data.duration + 300, useNativeDriver: true }),
-      ]),
-    ]);
-    animation.start();
-    return () => animation.stop();
-  }, []);
-
-  const translateX = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, spreadX * 0.7, spreadX] });
-  const translateY = progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, peakY, SCREEN_HEIGHT * 0.6] });
-  const rotate = progress.interpolate({ inputRange: [0, 1], outputRange: [`${data.rotation}deg`, `${data.rotation + 540}deg`] });
-  const scale = progress.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0.3, 1.2, 1, 0.5] });
-  const opacity = Animated.multiply(opacityAnim, progress.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] }));
-
-  return (
-    <Animated.View style={{
-      position: 'absolute' as const, left: data.x, top: data.y,
-      opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate }],
-    }}>
-      <ShapeView data={data} />
-    </Animated.View>
-  );
-}
-
-function RainSprinkle({ data }: { data: SprinkleData }) {
-  const fallAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animation = Animated.sequence([
-      Animated.delay(data.delay),
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 50, useNativeDriver: true }),
-        Animated.timing(fallAnim, { toValue: 1, duration: data.duration, useNativeDriver: true }),
-      ]),
-    ]);
-    animation.start();
-    return () => animation.stop();
-  }, []);
-
-  const drift = (Math.random() - 0.5) * 30;
-  const translateY = fallAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, SCREEN_HEIGHT + 40] });
-  const translateX = fallAnim.interpolate({ inputRange: [0, 1], outputRange: [0, drift] });
-  const opacity = Animated.multiply(opacityAnim, fallAnim.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] }));
-
-  return (
-    <Animated.View style={{
-      position: 'absolute' as const, left: data.x, top: 0,
-      opacity, transform: [{ translateY }, { translateX }],
-    }}>
-      <ShapeView data={data} />
-    </Animated.View>
-  );
-}
-
-function FireworkSprinkle({ data }: { data: SprinkleData }) {
-  const riseAnim = useRef(new Animated.Value(0)).current;
-  const burstAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  const burstRadius = 60 + Math.random() * 160;
-  const burstX = Math.cos(data.angle) * burstRadius;
-  const burstY = Math.sin(data.angle) * burstRadius;
-
-  useEffect(() => {
-    const animation = Animated.sequence([
-      Animated.delay(data.delay),
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 60, useNativeDriver: true }),
-        Animated.sequence([
-          Animated.timing(riseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(burstAnim, { toValue: 1, duration: data.duration, useNativeDriver: true }),
-        ]),
-      ]),
-    ]);
-    animation.start();
-    return () => animation.stop();
-  }, []);
-
-  const translateY = Animated.add(
-    riseAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_HEIGHT * 0.3, 0] }),
-    burstAnim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, burstY, burstY + 120] })
-  );
-  const translateX = burstAnim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, burstX, burstX * 0.9] });
-  const scale = burstAnim.interpolate({ inputRange: [0, 0.15, 0.5, 1], outputRange: [0.5, 1.4, 1, 0.2] });
-  const rotate = burstAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${data.rotation + 600}deg`] });
+  const scale = progress.interpolate({
+    inputRange: [0, 0.1, 0.4, 1],
+    outputRange: [0.2, 1.5, 1, 0],
+  });
+  const rotate = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', `${data.rotation + 720}deg`],
+  });
   const opacity = Animated.multiply(
-    opacityAnim,
-    burstAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1, 0] })
+    sparkle,
+    progress.interpolate({ inputRange: [0, 0.1, 0.6, 1], outputRange: [1, 1, 0.8, 0] })
   );
 
   return (
     <Animated.View style={{
-      position: 'absolute' as const, left: data.x, top: data.y,
-      opacity, transform: [{ translateX }, { translateY }, { scale }, { rotate }],
+      position: 'absolute' as const,
+      left: burstX,
+      top: burstY,
+      opacity,
+      transform: [{ translateX }, { translateY }, { scale }, { rotate }],
     }}>
       <ShapeView data={data} />
     </Animated.View>
@@ -322,7 +220,8 @@ function FireworkSprinkle({ data }: { data: SprinkleData }) {
 }
 
 function ShapeView({ data }: { data: SprinkleData }) {
-  const { width, height, color, shape } = data;
+  const { width, color, shape } = data;
+  const height = data.height;
   switch (shape) {
     case 'circle':
       return <View style={{ width, height: width, borderRadius: width / 2, backgroundColor: color }} />;
@@ -345,19 +244,54 @@ function ShapeView({ data }: { data: SprinkleData }) {
   }
 }
 
-function SprinkleItem({ data, index }: { data: SprinkleData; index: number }) {
-  switch (data.animStyle) {
-    case 'explosion': return <ExplosionSprinkle data={data} />;
-    case 'spiral': return <SpiralSprinkle data={data} index={index} />;
-    case 'fountain': return <FountainSprinkle data={data} />;
-    case 'rain': return <RainSprinkle data={data} />;
-    case 'firework': return <FireworkSprinkle data={data} />;
-    default: return <ClassicSprinkle data={data} />;
-  }
+interface ConfettiSprinklesProps {
+  visible: boolean;
+  onComplete?: () => void;
+}
+
+function generateFireworkShow(): FireworkRocketProps[] {
+  const rockets: FireworkRocketProps[] = [];
+
+  const cx = SCREEN_WIDTH / 2;
+  rockets.push({
+    startX: cx,
+    burstY: SCREEN_HEIGHT * 0.22,
+    riseDelay: 0,
+    riseDuration: 500,
+    particles: generateFireworkBurst(cx, SCREEN_HEIGHT * 0.22, 40, 0),
+  });
+
+  const leftX = SCREEN_WIDTH * 0.25;
+  rockets.push({
+    startX: leftX,
+    burstY: SCREEN_HEIGHT * 0.3,
+    riseDelay: 250,
+    riseDuration: 450,
+    particles: generateFireworkBurst(leftX, SCREEN_HEIGHT * 0.3, 30, 250),
+  });
+
+  const rightX = SCREEN_WIDTH * 0.75;
+  rockets.push({
+    startX: rightX,
+    burstY: SCREEN_HEIGHT * 0.28,
+    riseDelay: 400,
+    riseDuration: 480,
+    particles: generateFireworkBurst(rightX, SCREEN_HEIGHT * 0.28, 30, 400),
+  });
+
+  rockets.push({
+    startX: cx + (Math.random() - 0.5) * SCREEN_WIDTH * 0.4,
+    burstY: SCREEN_HEIGHT * 0.18,
+    riseDelay: 700,
+    riseDuration: 520,
+    particles: generateFireworkBurst(cx, SCREEN_HEIGHT * 0.18, 35, 700),
+  });
+
+  return rockets;
 }
 
 export default function ConfettiSprinkles({ visible, onComplete }: ConfettiSprinklesProps) {
-  const [sprinkles, setSprinkles] = useState<SprinkleData[]>([]);
+  const [rockets, setRockets] = useState<FireworkRocketProps[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cleanup = useCallback(() => {
@@ -369,27 +303,26 @@ export default function ConfettiSprinkles({ visible, onComplete }: ConfettiSprin
 
   useEffect(() => {
     if (visible) {
-      const style = pickRandomStyle();
-      console.log('[Confetti] Animation style:', style);
-      setSprinkles(generateSprinkles(style));
+      console.log('[Confetti] Firework show started');
+      setRockets(generateFireworkShow());
       cleanup();
       timerRef.current = setTimeout(() => {
-        setSprinkles([]);
+        setRockets([]);
         onComplete?.();
       }, 3500);
     } else {
-      setSprinkles([]);
+      setRockets([]);
       cleanup();
     }
     return cleanup;
   }, [visible, onComplete, cleanup]);
 
-  if (sprinkles.length === 0) return null;
+  if (rockets.length === 0) return null;
 
   return (
     <View style={styles.container} pointerEvents="none">
-      {sprinkles.map((data, index) => (
-        <SprinkleItem key={data.id} data={data} index={index} />
+      {rockets.map((rocket, idx) => (
+        <FireworkRocket key={`rocket_${idx}`} {...rocket} />
       ))}
     </View>
   );
