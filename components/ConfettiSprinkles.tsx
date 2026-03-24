@@ -34,7 +34,7 @@ function generateFireworkBurst(centerX: number, burstY: number, count: number, b
     return {
       id: `${Date.now()}_${baseDelay}_${i}`,
       delay: baseDelay,
-      duration: 1000 + Math.random() * 600,
+      duration: 2500 + Math.random() * 1500,
       color: SPRINKLE_COLORS[Math.floor(Math.random() * SPRINKLE_COLORS.length)],
       width: size,
       height: size + Math.random() * 6,
@@ -82,8 +82,8 @@ function FireworkRocket({ startX, burstY, riseDelay, riseDuration, particles }: 
     animation.start(() => {
       setHasBurst(true);
       Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(flashAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]).start();
     });
     return () => animation.stop();
@@ -164,7 +164,7 @@ function BurstParticle({ data, burstX, burstY }: { data: SprinkleData; burstX: n
 
   const targetX = Math.cos(data.angle) * data.burstRadius;
   const targetY = Math.sin(data.angle) * data.burstRadius;
-  const gravity = 80 + Math.random() * 60;
+  const gravity = 120 + Math.random() * 80;
 
   useEffect(() => {
     const animation = Animated.parallel([
@@ -176,8 +176,8 @@ function BurstParticle({ data, burstX, burstY }: { data: SprinkleData; burstX: n
       }),
       Animated.loop(
         Animated.sequence([
-          Animated.timing(sparkle, { toValue: 0.3, duration: 100 + Math.random() * 100, useNativeDriver: true }),
-          Animated.timing(sparkle, { toValue: 1, duration: 100 + Math.random() * 100, useNativeDriver: true }),
+          Animated.timing(sparkle, { toValue: 0.3, duration: 200 + Math.random() * 200, useNativeDriver: true }),
+          Animated.timing(sparkle, { toValue: 1, duration: 200 + Math.random() * 200, useNativeDriver: true }),
         ])
       ),
     ]);
@@ -199,7 +199,7 @@ function BurstParticle({ data, burstX, burstY }: { data: SprinkleData; burstX: n
   });
   const rotate = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', `${data.rotation + 720}deg`],
+    outputRange: ['0deg', `${data.rotation + 540}deg`],
   });
   const opacity = Animated.multiply(
     sparkle,
@@ -257,7 +257,7 @@ function generateFireworkShow(): FireworkRocketProps[] {
     startX: cx,
     burstY: SCREEN_HEIGHT * 0.22,
     riseDelay: 0,
-    riseDuration: 500,
+    riseDuration: 1000,
     particles: generateFireworkBurst(cx, SCREEN_HEIGHT * 0.22, 40, 0),
   });
 
@@ -265,8 +265,8 @@ function generateFireworkShow(): FireworkRocketProps[] {
   rockets.push({
     startX: leftX,
     burstY: SCREEN_HEIGHT * 0.3,
-    riseDelay: 250,
-    riseDuration: 450,
+    riseDelay: 600,
+    riseDuration: 900,
     particles: generateFireworkBurst(leftX, SCREEN_HEIGHT * 0.3, 30, 250),
   });
 
@@ -274,16 +274,16 @@ function generateFireworkShow(): FireworkRocketProps[] {
   rockets.push({
     startX: rightX,
     burstY: SCREEN_HEIGHT * 0.28,
-    riseDelay: 400,
-    riseDuration: 480,
+    riseDelay: 1000,
+    riseDuration: 950,
     particles: generateFireworkBurst(rightX, SCREEN_HEIGHT * 0.28, 30, 400),
   });
 
   rockets.push({
     startX: cx + (Math.random() - 0.5) * SCREEN_WIDTH * 0.4,
     burstY: SCREEN_HEIGHT * 0.18,
-    riseDelay: 700,
-    riseDuration: 520,
+    riseDelay: 1600,
+    riseDuration: 1050,
     particles: generateFireworkBurst(cx, SCREEN_HEIGHT * 0.18, 35, 700),
   });
 
@@ -309,7 +309,7 @@ export default function ConfettiSprinkles({ visible, onComplete }: ConfettiSprin
       timerRef.current = setTimeout(() => {
         setRockets([]);
         onComplete?.();
-      }, 3500);
+      }, 7000);
     } else {
       setRockets([]);
       cleanup();
