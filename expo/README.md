@@ -2,8 +2,6 @@
 
 Your intelligent task management companion powered by AI. Create, organize, and track tasks effortlessly with voice commands, smart scheduling, and detailed productivity analytics.
 
-<img width="1540" height="1080" alt="image" src="https://github.com/user-attachments/assets/a42c5468-7f0f-45ed-9219-880a3ac547ab" />
-
 ## Features
 
 ### AI-Powered Task Management
