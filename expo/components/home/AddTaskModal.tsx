@@ -4,6 +4,7 @@ import { ALERT_OPTIONS, getAlertLabelFromMinutes, requestNotificationPermissions
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmojiPicker from './EmojiPicker';
 
 const AVAILABLE_COLORS = [
   '#d6d6d6',
@@ -45,7 +46,6 @@ const generateTimeSlots = () => {
 
 const TIME_SLOTS = generateTimeSlots();
 
-const TASK_ICONS = ['📋', '💼', '🏋️', '📚', '🎯', '✨', '🎨', '💡', '🎵', '🛒', '🍽️', '💊'];
 
 interface AddTaskModalProps {
   visible: boolean;
@@ -110,7 +110,7 @@ export default function AddTaskModal({
   const [selectedDuration, setSelectedDuration] = useState(30);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(32);
   const [showAlertPicker, setShowAlertPicker] = useState(false);
-  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const timeScrollRef = useRef<ScrollView>(null);
@@ -130,7 +130,7 @@ export default function AddTaskModal({
       setShowDatePicker(false);
       setShowTimePicker(false);
       setShowAlertPicker(false);
-      setShowIconPicker(false);
+      setShowEmojiPicker(false);
       setSelectedDuration(30);
       setSelectedTimeIndex(32);
       setDatePickerMonth(selectedDate);
@@ -240,29 +240,12 @@ export default function AddTaskModal({
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Animated.View style={[styles.iconSection, { transform: [{ scale: scaleAnim }] }]}>
             <Pressable 
-              onPress={() => setShowIconPicker(!showIconPicker)} 
+              onPress={() => setShowEmojiPicker(true)} 
               style={[styles.iconCircle, { backgroundColor: color }]}
             >
               <Text style={styles.iconEmoji}>{icon}</Text>
             </Pressable>
           </Animated.View>
-
-          {showIconPicker && (
-            <View style={styles.iconPickerContainer}>
-              {TASK_ICONS.map((emoji) => (
-                <Pressable
-                  key={emoji}
-                  style={[styles.iconOption, icon === emoji && styles.iconOptionSelected]}
-                  onPress={() => {
-                    setIcon(emoji);
-                    setShowIconPicker(false);
-                  }}
-                >
-                  <Text style={styles.iconOptionText}>{emoji}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
 
           <View style={styles.titleSection}>
             <TextInput
@@ -691,6 +674,16 @@ export default function AddTaskModal({
           </View>
         </ScrollView>
       </View>
+
+      <EmojiPicker
+        visible={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelect={(emoji) => {
+          setIcon(emoji);
+          setShowEmojiPicker(false);
+        }}
+        selectedEmoji={icon}
+      />
     </Modal>
   );
 }
@@ -742,32 +735,7 @@ const styles = StyleSheet.create({
   iconEmoji: {
     fontSize: 40,
   },
-  iconPickerContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 16,
-  },
-  iconOption: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
-  },
-  iconOptionSelected: {
-    backgroundColor: '#FFF5EE',
-    borderWidth: 2,
-    borderColor: Colors.orangeStart,
-  },
-  iconOptionText: {
-    fontSize: 24,
-  },
+
   titleSection: {
     marginBottom: 20,
   },

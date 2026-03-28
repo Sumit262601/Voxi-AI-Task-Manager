@@ -4,6 +4,7 @@ import { ALERT_OPTIONS, getAlertLabelFromMinutes, requestNotificationPermissions
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmojiPicker from './EmojiPicker';
 
 const AVAILABLE_COLORS = [
   '#d6d6d6',
@@ -114,8 +115,7 @@ export default function EditTaskModal({
   onClose,
   onSave,
 }: EditTaskModalProps) {
-  const emojiInputRef = useRef<TextInput>(null);
-  const [isEditingEmoji, setIsEditingEmoji] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMonth, setDatePickerMonth] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -142,11 +142,10 @@ export default function EditTaskModal({
 
   useEffect(() => {
     if (!visible) {
-      setIsEditingEmoji(false);
+      setShowEmojiPicker(false);
       setShowDatePicker(false);
       setShowTimePicker(false);
       setShowAlertPicker(false);
-      emojiInputRef.current?.blur();
     } else {
       setDatePickerMonth(new Date(editScheduledDate));
       if (editTime) {
@@ -236,23 +235,7 @@ export default function EditTaskModal({
   }, [selectedTimeIndex, formatDurationDisplay, selectedDuration, setEditTime, setEditDuration]);
 
   const handleEditIconPress = () => {
-    setIsEditingEmoji(true);
-    setTimeout(() => {
-      emojiInputRef.current?.focus();
-    }, 150);
-  };
-
-  const handleEmojiChange = (text: string) => {
-    if (text.length > 0) {
-      const emoji = text.length >= 2 ? text.substring(0, 2) : text[0];
-      setEditIcon(emoji);
-      setIsEditingEmoji(false);
-      emojiInputRef.current?.blur();
-    }
-  };
-
-  const handleEmojiBlur = () => {
-    setIsEditingEmoji(false);
+    setShowEmojiPicker(true);
   };
 
   const currentPriority = PRIORITY_OPTIONS.find(p => p.label === editPriority) || PRIORITY_OPTIONS[3];
@@ -273,23 +256,7 @@ export default function EditTaskModal({
         <ScrollView contentContainerStyle={styles.editModalContent} showsVerticalScrollIndicator={false}>
           <Animated.View style={[styles.iconSection, { transform: [{ scale: scaleAnim }] }]}>
             <Pressable onPress={handleEditIconPress} style={[styles.editIconCircle, { backgroundColor: editColor || '#F5F5F5' }]}>
-              {isEditingEmoji ? (
-                <TextInput
-                  ref={emojiInputRef}
-                  style={styles.emojiInput}
-                  value=""
-                  onChangeText={handleEmojiChange}
-                  onBlur={handleEmojiBlur}
-                  maxLength={2}
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  returnKeyType="done"
-                  placeholderTextColor="rgba(0,0,0,0.3)"
-                  blurOnSubmit={true}
-                />
-              ) : (
-                <Text style={styles.editIconEmoji}>{editIcon}</Text>
-              )}
+              <Text style={styles.editIconEmoji}>{editIcon}</Text>
             </Pressable>
             <Pressable style={styles.editIconButton} onPress={handleEditIconPress}>
               <Edit2 size={14} color="#FFFFFF" />
@@ -699,6 +666,16 @@ export default function EditTaskModal({
           </View>
         </ScrollView>
       </View>
+
+      <EmojiPicker
+        visible={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelect={(emoji) => {
+          setEditIcon(emoji);
+          setShowEmojiPicker(false);
+        }}
+        selectedEmoji={editIcon}
+      />
     </Modal>
   );
 }
@@ -767,14 +744,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  emojiInput: {
-    fontSize: 40,
-    textAlign: 'center',
-    color: Colors.text,
-    width: '100%',
-    height: '100%',
-    padding: 0,
-  },
+
   titleSection: {
     marginBottom: 20,
   },
