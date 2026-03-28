@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import EmojiPicker from './EmojiPicker';
+import IOSTimePicker from './IOSTimePicker';
 
 const AVAILABLE_COLORS = [
   '#d6d6d6',
@@ -31,20 +32,7 @@ const DURATION_OPTIONS = [
   { label: '2h', minutes: 120 },
 ];
 
-const generateTimeSlots = () => {
-  const slots: { time: string; hour: number; minute: number; period: 'AM' | 'PM' }[] = [];
-  for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      const period = h < 12 ? 'AM' : 'PM';
-      const timeStr = `${hour12.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
-      slots.push({ time: timeStr, hour: h, minute: m, period });
-    }
-  }
-  return slots;
-};
 
-const TIME_SLOTS = generateTimeSlots();
 
 
 interface AddTaskModalProps {
@@ -108,12 +96,13 @@ export default function AddTaskModal({
   const [datePickerMonth, setDatePickerMonth] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(30);
-  const [selectedTimeIndex, setSelectedTimeIndex] = useState(32);
   const [showAlertPicker, setShowAlertPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [pickerHour, setPickerHour] = useState(8);
+  const [pickerMinute, setPickerMinute] = useState(0);
+  const [pickerPeriod, setPickerPeriod] = useState<'AM' | 'PM'>('AM');
   
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const timeScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (visible) {
@@ -132,7 +121,9 @@ export default function AddTaskModal({
       setShowAlertPicker(false);
       setShowEmojiPicker(false);
       setSelectedDuration(30);
-      setSelectedTimeIndex(32);
+      setPickerHour(8);
+      setPickerMinute(0);
+      setPickerPeriod('AM');
       setDatePickerMonth(selectedDate);
       
       Animated.spring(scaleAnim, {
@@ -159,31 +150,11 @@ export default function AddTaskModal({
     setScheduledDate(tomorrow.getTime());
   }, []);
 
-  const calculateEndTime = useCallback((startIndex: number, durationMins: number) => {
-    const slot = TIME_SLOTS[startIndex];
-    if (!slot) return '';
-
-    let totalMinutes = slot.hour * 60 + slot.minute + durationMins;
-    totalMinutes = totalMinutes % (24 * 60);
-    const endHour = Math.floor(totalMinutes / 60);
-    const endMinute = totalMinutes % 60;
-
-    const hour12 = endHour === 0 ? 12 : endHour > 12 ? endHour - 12 : endHour;
-    const period = endHour < 12 ? 'AM' : 'PM';
-    return `${hour12.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')} ${period}`;
+  const handleTimeChange = useCallback((hour: number, minute: number, period: 'AM' | 'PM') => {
+    setPickerHour(hour);
+    setPickerMinute(minute);
+    setPickerPeriod(period);
   }, []);
-
-  const scrollToSelectedTime = useCallback(() => {
-    setTimeout(() => {
-      timeScrollRef.current?.scrollTo({ y: selectedTimeIndex * 44 - 88, animated: false });
-    }, 100);
-  }, [selectedTimeIndex]);
-
-  useEffect(() => {
-    if (showTimePicker) {
-      scrollToSelectedTime();
-    }
-  }, [showTimePicker, scrollToSelectedTime]);
 
   const formatDurationDisplay = useCallback((mins: number) => {
     if (mins >= 60) {
@@ -195,14 +166,12 @@ export default function AddTaskModal({
   }, []);
 
   const handleConfirmTime = useCallback(() => {
-    const slot = TIME_SLOTS[selectedTimeIndex];
-    if (slot) {
-      setTime(slot.time);
-      setDuration(formatDurationDisplay(selectedDuration));
-      setTaskType('scheduled');
-    }
+    const timeStr = `${pickerHour.toString().padStart(2, '0')}:${pickerMinute.toString().padStart(2, '0')} ${pickerPeriod}`;
+    setTime(timeStr);
+    setDuration(formatDurationDisplay(selectedDuration));
+    setTaskType('scheduled');
     setShowTimePicker(false);
-  }, [selectedTimeIndex, formatDurationDisplay, selectedDuration]);
+  }, [pickerHour, pickerMinute, pickerPeriod, formatDurationDisplay, selectedDuration]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -523,41 +492,12 @@ export default function AddTaskModal({
 
               {showTimePicker && (
                 <View style={styles.timePickerContainer}>
-                  <View style={styles.timeListContainer}>
-                    <ScrollView
-                      ref={timeScrollRef}
-                      style={styles.timeListScroll}
-                      showsVerticalScrollIndicator={false}
-                      snapToInterval={44}
-                      decelerationRate="fast"
-                      contentContainerStyle={styles.timeListContent}
-                    >
-                      <View style={styles.timeListSpacer} />
-                      {TIME_SLOTS.map((slot, index) => {
-                        const isSelected = selectedTimeIndex === index;
-                        const endTime = calculateEndTime(index, selectedDuration);
-                        return (
-                          <Pressable
-                            key={slot.time}
-                            style={[
-                              styles.timeSlotItem,
-                              isSelected && styles.timeSlotItemSelected,
-                            ]}
-                            onPress={() => setSelectedTimeIndex(index)}
-                          >
-                            <Text style={[
-                              styles.timeSlotText,
-                              isSelected && styles.timeSlotTextSelected,
-                            ]}>
-                              {isSelected ? `${slot.time} - ${endTime}` : slot.time}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                      <View style={styles.timeListSpacer} />
-                    </ScrollView>
-                    <View style={styles.timeSelectionIndicator} pointerEvents="none" />
-                  </View>
+                  <IOSTimePicker
+                    initialHour={pickerHour}
+                    initialMinute={pickerMinute}
+                    initialPeriod={pickerPeriod}
+                    onTimeChange={handleTimeChange}
+                  />
 
                   <Text style={styles.durationLabel}>Duration</Text>
                   <View style={styles.durationOptions}>
@@ -1000,55 +940,6 @@ const styles = StyleSheet.create({
   timePickerContainer: {
     padding: 16,
     paddingTop: 0,
-  },
-  timeListContainer: {
-    height: 220,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  timeListScroll: {
-    flex: 1,
-  },
-  timeListContent: {
-    alignItems: 'center',
-  },
-  timeListSpacer: {
-    height: 88,
-  },
-  timeSlotItem: {
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  timeSlotItemSelected: {
-    backgroundColor: 'rgba(255,144,82,0.15)',
-    borderRadius: 10,
-    marginHorizontal: 8,
-  },
-  timeSlotText: {
-    fontSize: 16,
-    color: '#8E8E93',
-    fontWeight: '400' as const,
-  },
-  timeSlotTextSelected: {
-    color: Colors.orangeStart,
-    fontWeight: '700' as const,
-    fontSize: 18,
-  },
-  timeSelectionIndicator: {
-    position: 'absolute',
-    top: '50%',
-    left: 16,
-    right: 16,
-    height: 44,
-    marginTop: -22,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.orangeStart,
-    borderStyle: 'dashed',
   },
   durationLabel: {
     fontSize: 14,
