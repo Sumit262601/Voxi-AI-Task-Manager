@@ -2,10 +2,11 @@ import Colors from '@/constants/colors';
 import { Check, Clock, Plus, X, Bell, Calendar, Palette, ListChecks, CalendarClock } from 'lucide-react-native';
 import { ALERT_OPTIONS, getAlertLabelFromMinutes, requestNotificationPermissions } from '@/utils/notifications';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Animated } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Animated, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import EmojiPicker from './EmojiPicker';
 import IOSTimePicker from './IOSTimePicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const AVAILABLE_COLORS = [
   '#d6d6d6',
@@ -154,6 +155,27 @@ export default function AddTaskModal({
     setPickerHour(hour);
     setPickerMinute(minute);
     setPickerPeriod(period);
+  }, []);
+
+  const getDateFromPickerState = useCallback(() => {
+    let hour24 = pickerHour;
+    if (pickerPeriod === 'AM' && hour24 === 12) hour24 = 0;
+    if (pickerPeriod === 'PM' && hour24 !== 12) hour24 += 12;
+    const d = new Date();
+    d.setHours(hour24, pickerMinute, 0, 0);
+    return d;
+  }, [pickerHour, pickerMinute, pickerPeriod]);
+
+  const handleNativeDateChange = useCallback((_event: unknown, selectedDate?: Date) => {
+    if (selectedDate) {
+      const h = selectedDate.getHours();
+      const m = selectedDate.getMinutes();
+      const period: 'AM' | 'PM' = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      setPickerHour(hour12);
+      setPickerMinute(m);
+      setPickerPeriod(period);
+    }
   }, []);
 
   const formatDurationDisplay = useCallback((mins: number) => {
@@ -492,12 +514,24 @@ export default function AddTaskModal({
 
               {showTimePicker && (
                 <View style={styles.timePickerContainer}>
-                  <IOSTimePicker
-                    initialHour={pickerHour}
-                    initialMinute={pickerMinute}
-                    initialPeriod={pickerPeriod}
-                    onTimeChange={handleTimeChange}
-                  />
+                  {Platform.OS !== 'web' ? (
+                    <View style={styles.nativePickerWrapper}>
+                      <DateTimePicker
+                        value={getDateFromPickerState()}
+                        mode="time"
+                        display="spinner"
+                        onChange={handleNativeDateChange}
+                        themeVariant="light"
+                      />
+                    </View>
+                  ) : (
+                    <IOSTimePicker
+                      initialHour={pickerHour}
+                      initialMinute={pickerMinute}
+                      initialPeriod={pickerPeriod}
+                      onTimeChange={handleTimeChange}
+                    />
+                  )}
 
                   <Text style={styles.durationLabel}>Duration</Text>
                   <View style={styles.durationOptions}>
@@ -940,6 +974,11 @@ const styles = StyleSheet.create({
   timePickerContainer: {
     padding: 16,
     paddingTop: 0,
+  },
+  nativePickerWrapper: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   durationLabel: {
     fontSize: 14,
