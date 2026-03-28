@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NOTIFICATION_IDS_KEY = '@task_notification_ids';
 const NOTIFICATION_HISTORY_KEY = '@notification_history';
+const NOTIFICATIONS_ENABLED_KEY = '@notifications_enabled';
 const DEFAULT_ALERT_MINUTES = 10;
 const MAX_HISTORY = 50;
 
@@ -31,6 +32,29 @@ Notifications.setNotificationHandler({
 export interface ScheduledNotification {
   taskId: string;
   notificationId: string;
+}
+
+export async function isNotificationsEnabled(): Promise<boolean> {
+  try {
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+    return stored !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export async function setNotificationsEnabled(enabled: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? 'true' : 'false');
+    console.log('Notifications enabled set to:', enabled);
+
+    if (!enabled) {
+      await cancelAllTaskNotifications();
+      console.log('All scheduled notifications cancelled due to global toggle off');
+    }
+  } catch (error) {
+    console.error('Error setting notifications enabled:', error);
+  }
 }
 
 export async function requestNotificationPermissions(): Promise<boolean> {
@@ -74,6 +98,12 @@ export async function scheduleTaskNotification(
   }
 
   try {
+    const globalEnabled = await isNotificationsEnabled();
+    if (!globalEnabled) {
+      console.log('Notifications are globally disabled, skipping schedule');
+      return null;
+    }
+
     await cancelTaskNotification(taskId);
 
     const taskDateTime = parseTaskDateTime(scheduledDate, taskTime);
@@ -95,11 +125,12 @@ export async function scheduleTaskNotification(
 
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '⏰ Task Reminder',
+        title: '📋 Voxi Task Reminder',
         body,
+        subtitle: taskTitle,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
-        data: { taskId },
+        data: { taskId, taskTitle },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -107,7 +138,7 @@ export async function scheduleTaskNotification(
       },
     });
 
-    console.log(`Scheduled notification ${notificationId} for task ${taskId} at ${notificationTime}`);
+    console.log(`Scheduled notification ${notificationId} for task ${taskId} at ${notificationTime.toISOString()}`);
 
     await saveNotificationId(taskId, notificationId);
     await saveNotificationToHistory({
@@ -327,6 +358,12 @@ export async function showInstantNotification(
   }
 
   try {
+    const globalEnabled = await isNotificationsEnabled();
+    if (!globalEnabled) {
+      console.log('Notifications are globally disabled, skipping instant notification');
+      return null;
+    }
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -349,6 +386,38 @@ export async function showInstantNotification(
     console.error('Error sending instant notification:', error);
     return null;
   }
+}
+
+export async function rescheduleAllTaskNotifications(
+  tasks: Array<{ id: string; title: string; scheduledDate: number; time: string; alertMinutes?: number; completed: boolean }>
+): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  const globalEnabled = await isNotificationsEnabled();
+  if (!globalEnabled) {
+    console.log('Notifications disabled, skipping reschedule');
+    return;
+  }
+
+  console.log('Rescheduling notifications for', tasks.length, 'tasks');
+
+  for (const task of tasks) {
+    if (task.completed || !task.time) continue;
+
+    const effectiveAlert = task.alertMinutes !== undefined && task.alertMinutes >= 0
+      ? task.alertMinutes
+      : DEFAULT_ALERT_MINUTES;
+
+    await scheduleTaskNotification(
+      task.id,
+      task.title,
+      task.scheduledDate,
+      task.time,
+      effectiveAlert
+    );
+  }
+
+  console.log('All task notifications rescheduled');
 }
 
 export async function scheduleTaskNotificationAuto(

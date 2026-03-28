@@ -14,7 +14,7 @@ import NotificationsModal, { type Notification } from '@/components/profile/Noti
 import RateUsModal from '@/components/profile/RateUsModal';
 import FeedbackModal from '@/components/profile/FeedbackModal';
 import { syncAllTasksToCalendar, clearAllCalendarEvents, isCalendarSyncEnabled, getCalendarType } from '@/utils/calendarSync';
-import { getNotificationHistory } from '@/utils/notifications';
+import { getNotificationHistory, isNotificationsEnabled, setNotificationsEnabled, rescheduleAllTaskNotifications, requestNotificationPermissions } from '@/utils/notifications';
 import { checkBiometricSupport, isBiometricEnabled, setBiometricEnabled, authenticateWithBiometrics, getBiometricLabel } from '@/utils/biometricAuth';
 import { Platform } from 'react-native';
 
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
 
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [userNotifications, setUserNotifications] = useState<Notification[]>([]);
+  const [notificationsEnabled, setNotificationsEnabledState] = useState(true);
   const [showRateUsModal, setShowRateUsModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false);
@@ -92,6 +93,55 @@ export default function ProfileScreen() {
       await setBiometricEnabled(false);
       setBiometricEnabledState(false);
       Alert.alert('Biometric Lock Disabled', 'App lock has been turned off.');
+    }
+  };
+
+  useEffect(() => {
+    const loadNotificationStatus = async () => {
+      try {
+        const enabled = await isNotificationsEnabled();
+        setNotificationsEnabledState(enabled);
+      } catch (error) {
+        console.error('Failed to load notification status:', error);
+      }
+    };
+    void loadNotificationStatus();
+  }, []);
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        const hasPermission = await requestNotificationPermissions();
+        if (!hasPermission) {
+          Alert.alert(
+            'Permission Required',
+            'Please enable notifications in your device settings to receive task reminders.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+
+      await setNotificationsEnabled(enabled);
+      setNotificationsEnabledState(enabled);
+
+      if (enabled) {
+        await rescheduleAllTaskNotifications(tasks);
+        Alert.alert(
+          'Notifications Enabled',
+          'You will now receive reminders for your tasks based on their scheduled time.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Notifications Disabled',
+          'You will no longer receive task reminders. You can re-enable them anytime.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Failed to toggle notifications:', error);
+      Alert.alert('Error', 'Failed to update notification settings.');
     }
   };
 
@@ -361,7 +411,18 @@ export default function ProfileScreen() {
                 iconBg="#FFF5F0"
                 iconColor="#FF9052"
                 title="Notifications"
-                subtitle="Manage your alerts"
+                subtitle={notificationsEnabled ? 'Task reminders are on' : 'Task reminders are off'}
+                showSwitch
+                switchValue={notificationsEnabled}
+                onSwitchChange={handleNotificationToggle}
+              />
+              <View style={styles.separator} />
+              <MenuItem
+                icon={<Clock size={20} color="#6366F1" />}
+                iconBg="#EEF2FF"
+                iconColor="#6366F1"
+                title="Notification History"
+                subtitle="View past alerts"
                 onPress={() => setShowNotificationsModal(true)}
               />
               <View style={styles.separator} />
