@@ -17,9 +17,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CALENDAR_PADDING = 16;
-const CELL_GAP = 2;
-const CELL_SIZE = (SCREEN_WIDTH - CALENDAR_PADDING * 2 - CELL_GAP * 6) / 7;
+const CARD_MARGIN_H = 16;
+const CARD_PADDING_H = 8;
+const GRID_PADDING_H = 4;
+const TOTAL_H_PADDING = (CARD_MARGIN_H + CARD_PADDING_H + GRID_PADDING_H) * 2;
+const CELL_SIZE = Math.floor((SCREEN_WIDTH - TOTAL_H_PADDING) / 7);
 const CELL_HEIGHT = 38;
 
 const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
